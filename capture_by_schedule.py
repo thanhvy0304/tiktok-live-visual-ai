@@ -2,17 +2,13 @@
 """
 TIKTOK LIVE VISUAL AI
 FILE: capture_by_schedule.py
-VERSION: 1.0 - PILOT
+VERSION: 1.1 - MANUAL TEST MODE
 
-Chức năng:
-- Kết nối Apps Script API
-- Đọc các ca Host vừa bắt đầu
-- Chụp screenshot TikTok LIVE bằng Playwright
-- Lưu screenshot dưới dạng GitHub Artifact
-
-Chưa ghi Google Sheets / Google Drive.
-Chưa có chống trùng bền vững.
-Chưa chạy định kỳ.
+- NORMAL: Chụp các ca vừa bắt đầu
+- TEST: Chọn một Schedule_ID của ngày hiện tại
+- Không ghi Google Sheets
+- Không thay đổi lịch Host
+- Không bật tự động định kỳ
 """
 
 import asyncio
@@ -28,19 +24,27 @@ from playwright.async_api import async_playwright
 API_URL = os.environ.get("VISUAL_API_URL", "").strip()
 API_TOKEN = os.environ.get("VISUAL_API_TOKEN", "").strip()
 
+TEST_MODE = os.environ.get(
+    "TEST_MODE", "false"
+).lower() == "true"
+
+TEST_SCHEDULE_ID = os.environ.get(
+    "TEST_SCHEDULE_ID", ""
+).strip()
+
 OUTPUT_DIR = Path("visual_captures")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def get_due_sessions():
-    """Lấy các ca vừa bắt đầu từ Apps Script."""
+def get_sessions(action):
+    if not API_URL.startswith("https://"):
+        raise RuntimeError("Invalid API URL")
 
-    if not API_URL or not API_TOKEN:
-        raise RuntimeError("Missing API configuration")
+    if not API_TOKEN:
+        raise RuntimeError("Missing API token")
 
     payload = json.dumps({
         "token": API_TOKEN,
-        "action": "due"
+        "action": action
     }).encode("utf-8")
 
     request = Request(
@@ -51,30 +55,31 @@ def get_due_sessions():
     )
 
     with urlopen(request, timeout=45) as response:
-        data = json.loads(response.read().decode("utf-8"))
-
-    if data.get("ok") is not True:
-        raise RuntimeError(
-            "API request failed: " + str(data.get("error"))
+        result = json.loads(
+            response.read().decode("utf-8")
         )
 
-    return data.get("sessions", [])
+    if result.get("ok") is not True:
+        raise RuntimeError(
+            "API error: " + str(result.get("error"))
+        )
+
+    return result.get("sessions", [])
 
 
 async def capture_session(page, session):
-    """Chụp một screenshot của ca Host."""
-
     schedule_id = session.get("schedule_id", "")
-    host_name = session.get("host_name", "Unknown")
     live_url = session.get("live_url", "")
 
-    if not live_url.startswith("https://www.tiktok.com/"):
-        raise ValueError("Invalid TikTok LIVE URL")
+    if not (
+        live_url == "https://www.tiktok.com/@hannahteam.review/live"
+    ):
+        raise ValueError("Unexpected LIVE URL")
 
-    print("Schedule:", schedule_id)
-    print("Host:", host_name)
+    print("Schedule_ID:", schedule_id)
+    print("Scheduled Host:", session.get("host_name"))
 
-    response = await page.goto(
+    await page.goto(
         live_url,
         wait_until="domcontentloaded",
         timeout=60000
@@ -85,50 +90,91 @@ async def capture_session(page, session):
     video = page.locator("video").first
 
     if await video.count() == 0:
-        print("No video element; skipping capture")
-        return
+        raise RuntimeError("No video element found")
 
-    state = await video.evaluate(
+    first = await video.evaluate(
         """v => ({
             readyState: v.readyState,
-            videoWidth: v.videoWidth,
-            videoHeight: v.videoHeight
+            width: v.videoWidth,
+            height: v.videoHeight,
+            currentTime: v.currentTime
+        })"""
+    )
+
+    await page.wait_for_timeout(3000)
+
+    second = await video.evaluate(
+        """v => ({
+            readyState: v.readyState,
+            width: v.videoWidth,
+            height: v.videoHeight,
+            currentTime: v.currentTime
         })"""
     )
 
     if (
-        state["readyState"] < 2
-        or state["videoWidth"] <= 0
-        or state["videoHeight"] <= 0
+        second["readyState"] < 2
+        or second["width"] <= 0
+        or second["height"] <= 0
+        or second["currentTime"] <= first["currentTime"]
     ):
-        print("Video is not ready; skipping capture")
-        return
+        raise RuntimeError("Video playback not confirmed")
+
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now(timezone.utc).strftime(
         "%Y%m%d_%H%M%S"
     )
 
     safe_id = "".join(
-        c for c in schedule_id if c.isalnum() or c in "-_"
+        c for c in schedule_id
+        if c.isalnum() or c in "-_"
     ) or "UNKNOWN"
 
-    image_path = OUTPUT_DIR / f"{safe_id}_{timestamp}.png"
+    filename = OUTPUT_DIR / (
+        f"TEST_{safe_id}_{timestamp}.png"
+        if TEST_MODE else
+        f"{safe_id}_{timestamp}.png"
+    )
 
     await page.screenshot(
-        path=str(image_path),
+        path=str(filename),
         full_page=False
     )
 
-    print("Screenshot saved:", image_path)
+    print("Screenshot saved:", filename)
 
 
 async def main():
-    sessions = get_due_sessions()
+    action = "today" if TEST_MODE else "due"
 
-    print("Due sessions:", len(sessions))
+    sessions = get_sessions(action)
+
+    if TEST_MODE:
+        if not TEST_SCHEDULE_ID:
+            raise RuntimeError(
+                "TEST_SCHEDULE_ID is required"
+            )
+
+        sessions = [
+            s for s in sessions
+            if s.get("schedule_id") == TEST_SCHEDULE_ID
+        ]
+
+        if len(sessions) != 1:
+            raise RuntimeError(
+                "Schedule_ID not found or not unique "
+                "in today's schedule"
+            )
+
+        print("TEST MODE ENABLED")
+    else:
+        print("NORMAL MODE")
+
+    print("Selected sessions:", len(sessions))
 
     if not sessions:
-        print("No sessions require capture.")
+        print("No sessions require capture")
         return
 
     async with async_playwright() as p:
@@ -144,11 +190,7 @@ async def main():
             )
 
             for session in sessions:
-                try:
-                    await capture_session(page, session)
-                except Exception as error:
-                    print("Capture failed:", type(error).__name__)
-                    raise
+                await capture_session(page, session)
 
         finally:
             await browser.close()
