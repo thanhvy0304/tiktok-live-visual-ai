@@ -3,6 +3,11 @@ name: Test Capture By Schedule
 
 on:
   workflow_dispatch:
+    inputs:
+      schedule_id:
+        description: "Schedule_ID cần kiểm thử"
+        required: true
+        type: string
 
 jobs:
   capture:
@@ -23,17 +28,19 @@ jobs:
           python -m pip install playwright
           python -m playwright install --with-deps chromium
 
-      - name: Capture TikTok LIVE
+      - name: Capture selected session
         env:
           VISUAL_API_URL: ${{ secrets.VISUAL_API_URL }}
           VISUAL_API_TOKEN: ${{ secrets.VISUAL_API_TOKEN }}
+          TEST_MODE: "true"
+          TEST_SCHEDULE_ID: ${{ inputs.schedule_id }}
         run: python capture_by_schedule.py
 
-      - name: Upload screenshots
+      - name: Upload screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: visual-capture-test
+          name: visual-capture-manual-test
           path: visual_captures/
           if-no-files-found: warn
           retention-days: 7
