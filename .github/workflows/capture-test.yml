@@ -1,0 +1,39 @@
+
+name: Test Capture By Schedule
+
+on:
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Capture TikTok LIVE
+        env:
+          VISUAL_API_URL: ${{ secrets.VISUAL_API_URL }}
+          VISUAL_API_TOKEN: ${{ secrets.VISUAL_API_TOKEN }}
+        run: python capture_by_schedule.py
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-capture-test
+          path: visual_captures/
+          if-no-files-found: warn
+          retention-days: 7
