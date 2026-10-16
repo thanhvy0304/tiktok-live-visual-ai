@@ -1,0 +1,36 @@
+
+name: Test TikTok LIVE Screenshot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  screenshot-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run screenshot test
+        run: python screenshot.py
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiktok-live-test
+          path: screenshots/
+          if-no-files-found: warn
+          retention-days: 7
