@@ -10,19 +10,78 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - name: Check API configuration
+      - name: Test API connection
         env:
           API_URL: ${{ secrets.VISUAL_API_URL }}
           API_TOKEN: ${{ secrets.VISUAL_API_TOKEN }}
         run: |
-          if [ -z "$API_URL" ]; then
-            echo "::error::VISUAL_API_URL is missing or empty"
-            exit 1
-          fi
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.request
+          import urllib.error
 
-          if [ -z "$API_TOKEN" ]; then
-            echo "::error::VISUAL_API_TOKEN is missing or empty"
-            exit 1
-          fi
+          url = os.environ.get("API_URL", "")
+          token = os.environ.get("API_TOKEN", "")
 
-          echo "Both API secrets are configured."
+          if not url or not token:
+              raise RuntimeError("Missing API configuration")
+
+          def call_api(payload):
+              request = urllib.request.Request(
+                  url,
+                  data=json.dumps(payload).encode("utf-8"),
+                  headers={"Content-Type": "application/json"},
+                  method="POST"
+              )
+
+              with urllib.request.urlopen(
+                  request, timeout=40
+              ) as response:
+                  body = response.read().decode("utf-8")
+                  return json.loads(body)
+
+          print("Testing authorized connection...")
+
+          result = call_api({
+              "token": token,
+              "action": "today"
+          })
+
+          if result.get("ok") is not True:
+              raise RuntimeError(
+                  "API rejected request: " +
+                  str(result.get("error"))
+              )
+
+          print("AUTHORIZED API: PASS")
+          print("Timezone:", result.get("timezone"))
+          print("Sessions:", result.get("count"))
+
+          for session in result.get("sessions", []):
+              print(
+                  session.get("start_time"),
+                  "-",
+                  session.get("end_time"),
+                  "|",
+                  session.get("host_name")
+              )
+
+          print("Testing invalid token...")
+
+          invalid = call_api({
+              "token": "invalid-test-token",
+              "action": "today"
+          })
+
+          if (
+              invalid.get("ok") is not False
+              or invalid.get("error") != "UNAUTHORIZED"
+          ):
+              raise RuntimeError(
+                  "Invalid token was not rejected"
+              )
+
+          print("INVALID TOKEN REJECTED: PASS")
+          print("API CONNECTION TEST COMPLETED")
+          PY
