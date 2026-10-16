@@ -1,0 +1,38 @@
+
+name: Test Live Image Capture
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Capture TikTok LIVE
+        run: python screenshot.py
+
+      - name: Upload test image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-image-upload-test
+          path: screenshots/*.png
+          if-no-files-found: error
+          retention-days: 1
