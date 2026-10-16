@@ -1,0 +1,28 @@
+
+name: Test Visual Monitoring API
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check API configuration
+        env:
+          API_URL: ${{ secrets.VISUAL_API_URL }}
+          API_TOKEN: ${{ secrets.VISUAL_API_TOKEN }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::VISUAL_API_URL is missing or empty"
+            exit 1
+          fi
+
+          if [ -z "$API_TOKEN" ]; then
+            echo "::error::VISUAL_API_TOKEN is missing or empty"
+            exit 1
+          fi
+
+          echo "Both API secrets are configured."
