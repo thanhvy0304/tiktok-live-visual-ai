@@ -1,0 +1,33 @@
+name: Top Host Schedule Sync DRY RUN
+on:
+  workflow_dispatch:
+    inputs:
+      date_vn:
+        description: "Vietnam date YYYY-MM-DD (blank for today)"
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  schedule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: python -m pip install "google-auth>=2,<3" "requests>=2,<3"
+      - name: Export schedule (read only)
+        env:
+          TOP_HOST_GOOGLE_CREDENTIALS_JSON: ${{ secrets.TOP_HOST_GOOGLE_CREDENTIALS_JSON }}
+          TOP_HOST_DATE: ${{ inputs.date_vn }}
+        run: python top_host/schedule_sync.py
+      - name: Upload report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: top-host-schedule-dry-run
+          path: top_host_output/schedule_dry_run.json
+          retention-days: 7
