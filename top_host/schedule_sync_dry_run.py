@@ -14,7 +14,14 @@ def main():
     session = AuthorizedSession(credentials)
     url = f"https://sheets.googleapis.com/v4/spreadsheets/{SHEET_ID}/values/{RANGE}"
     response = session.get(url, timeout=40)
-    response.raise_for_status()
+    if not response.ok:
+        try:
+            err = response.json().get("error", {})
+            details = {"code": err.get("code"), "status": err.get("status"),
+                       "message": err.get("message"), "details": err.get("details", [])}
+        except ValueError:
+            details = {"http_status": response.status_code, "body": response.text[:1500]}
+        raise RuntimeError("GOOGLE_SHEETS_API_ERROR " + json.dumps(details, ensure_ascii=False))
     rows = response.json().get("values", [])
     if not rows:
         raise RuntimeError("LIVE_SCHEDULE empty")
