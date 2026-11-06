@@ -6,6 +6,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from playwright.async_api import async_playwright
+from top_host.clean_capture_ui import cleanup_tutorial, overlay_gate, assess_overlay
 
 ROOT = Path("top_host/output")
 URL = "https://www.tiktok.com/@hannaholala/live"
@@ -46,9 +47,17 @@ async def main():
                     await page.wait_for_timeout(3000)
                     second = await video.evaluate("v => ({t:v.currentTime,ready:v.readyState,w:v.videoWidth,h:v.videoHeight})")
                     if second["ready"] >= 2 and second["w"] > 0 and second["h"] > 0 and second["t"] > first["t"]:
-                        await video.screenshot(path=str(ROOT / "leader_review_frame.png"))
-                        result.update(status="FRAME_FOR_LEADER_REVIEW", reason="VIDEO_PROGRESS",
-                                      screenshot_count=1, playback_observed=True)
+                        cleanup = await cleanup_tutorial(page)
+                        gate = await overlay_gate(page, video)
+                        assessment = assess_overlay(gate)
+                        result.update(cleanup=cleanup, overlay_assessment=assessment,
+                                      playback_observed=True)
+                        if assessment == "NO_KNOWN_BLOCKING_OVERLAY":
+                            await video.screenshot(path=str(ROOT / "leader_review_frame.png"))
+                            result.update(status="FRAME_FOR_LEADER_REVIEW", reason="VIDEO_PROGRESS",
+                                          screenshot_count=1)
+                        else:
+                            result["reason"] = assessment
                     else:
                         result["reason"] = "NO_VIDEO_PROGRESS"
             except Exception as exc:
