@@ -23,12 +23,17 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check google-auth requests playwright
           python -m playwright install chromium
+      - name: Test evidence packaging
+        run: python -m unittest top_host.test_evidence_package -v
       - name: Read schedule
         run: python top_host/schedule_sync_json.py
       - name: Validate handoff
         run: python top_host/capture_handoff_preview.py
       - name: Single frame for manual identity review
         run: timeout 90s python -m top_host.leader_review_frame
+      - name: Package evidence for Leader review
+        if: always()
+        run: python -m top_host.evidence_package
       - name: Upload diagnostic evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -37,5 +42,7 @@ jobs:
           path: |
             top_host/output/leader_review.json
             top_host/output/leader_review_frame.png
+            top_host/output/evidence_package_result.json
+            top_host/output/evidence/
           if-no-files-found: warn
           retention-days: 2
