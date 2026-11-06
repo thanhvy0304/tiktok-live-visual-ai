@@ -1,0 +1,34 @@
+name: Top Host Real Lease - ISOLATED TEST
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: top-host-real-lease-test
+  cancel-in-progress: false
+
+jobs:
+  real-lease-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Offline state-machine tests
+        run: python -m unittest top_host.test_capture_lock_preview top_host.test_durable_transition_lock -v
+      - name: Isolated real GitHub write, read, dedup and cleanup
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m top_host.real_lock_test
+      - name: Upload real lease test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: top-host-real-lease-test
+          path: top_host/output/real_lock_test.json
+          if-no-files-found: warn
+          retention-days: 2
