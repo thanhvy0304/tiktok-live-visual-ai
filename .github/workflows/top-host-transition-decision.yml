@@ -22,18 +22,22 @@ jobs:
       - name: Install Sheets read dependency
         run: python -m pip install --disable-pip-version-check google-auth requests
       - name: Test transition rules
-        run: python -m unittest top_host.test_transition_decision -v
+        run: python -m unittest top_host.test_transition_decision top_host.test_capture_lock_preview -v
       - name: Read schedule
         run: python top_host/schedule_sync_json.py
       - name: Validate handoff
         run: python top_host/capture_handoff_preview.py
       - name: Preview transition (no capture)
         run: python -m top_host.transition_decision
+      - name: Simulate dedup lease (no writes)
+        run: python -m top_host.capture_lock_preview
       - name: Upload decision
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: top-host-transition-decision
-          path: top_host/output/transition_decision.json
+          path: |
+            top_host/output/transition_decision.json
+            top_host/output/lock_preview.json
           if-no-files-found: warn
           retention-days: 2
