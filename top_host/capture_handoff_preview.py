@@ -39,7 +39,7 @@ def main():
         if not sid or sid in seen or item.get("channel") != CHANNEL or item.get("date_vn") != expected_date:
             raise ValueError("Invalid or duplicate session")
         seen.add(sid)
-        if str(item.get("host", "")).strip().casefold() != "thanh huyền":
+        if not str(item.get("host", "")).strip():
             raise ValueError("Unexpected host")
         start, end = minutes(item.get("start")), minutes(item.get("end"))
         if end <= start:
