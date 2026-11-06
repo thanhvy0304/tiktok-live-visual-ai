@@ -1,0 +1,49 @@
+name: Top Host Durable Lease - MANUAL TEST
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: top-host-capture-lock-main
+  cancel-in-progress: false
+
+jobs:
+  durable-lease:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/291478497469/locations/global/workloadIdentityPools/top-host-github/providers/github-actions
+          service_account: top-host-schedule-reader@olala-live-together.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependency
+        run: python -m pip install --disable-pip-version-check google-auth requests
+      - name: Run lease tests
+        run: python -m unittest top_host.test_capture_lock_preview top_host.test_durable_transition_lock -v
+      - name: Read schedule
+        run: python top_host/schedule_sync_json.py
+      - name: Validate handoff
+        run: python top_host/capture_handoff_preview.py
+      - name: Determine transition
+        run: python -m top_host.transition_decision
+      - name: Persist conditional lease claim (no capture)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m top_host.durable_transition_lock
+      - name: Upload diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: top-host-durable-lease
+          path: |
+            top_host/output/transition_decision.json
+            top_host/output/durable_lock_result.json
+          if-no-files-found: warn
+          retention-days: 2
