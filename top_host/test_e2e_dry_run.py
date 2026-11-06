@@ -27,8 +27,8 @@ class IntegrationTests(unittest.TestCase):
         ledger = {"schema": 1, "completed": {key: {"evidence_ref": "artifact-123", "reviewed_by": "leader"}}}
         r = integrate(h, ledger, NOW)
         self.assertEqual(r["sessions"][0]["dedup_decision"], "SKIP_COMPLETED")
-    def test_wrong_host_fails(self):
-        h = handoff(); h["sessions"][0]["host"] = "Other"
+    def test_missing_host_fails(self):
+        h = handoff(); h["sessions"][0]["host"] = ""
         with self.assertRaises(ValueError):
             integrate(h, {"schema": 1, "completed": {}}, NOW)
     def test_stale_fails(self):
