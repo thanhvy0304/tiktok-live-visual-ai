@@ -10,7 +10,6 @@ from google.auth.transport.requests import AuthorizedSession
 SHEET_ID = '1XWj-zSMcb2W5fPqKT8LptOwSwCFpEQ_4MYl5keIihXE'
 SHEET_RANGE = "'LIVE_SCHEDULE'!A1:AZ10000"
 CHANNEL = 'Tiktok Tích Xanh'
-TOP_HOSTS = {'thanh huyền'}
 OUTPUT = Path('top_host/output/schedule_sync.json')
 
 
@@ -42,7 +41,7 @@ def main():
         if cell(row, ci).casefold() != CHANNEL.casefold() or cell(row, di) != date_vn:
             continue
         host = cell(row, hi)
-        if host.casefold() not in TOP_HOSTS:
+        if not host:
             continue
         schedule_id = cell(row, idi)
         if not schedule_id or schedule_id in seen:
@@ -50,7 +49,7 @@ def main():
         seen.add(schedule_id)
         sessions.append({'schedule_id': schedule_id, 'host': host, 'channel': CHANNEL,
                          'date_vn': date_vn, 'start': cell(row, si), 'end': cell(row, ei),
-                         'selection': 'TOP_HOST_MATCH'})
+                         'selection': 'CHANNEL_ALL_HOSTS'})
     result = {'status': 'TOP_HOST_SCHEDULE_SYNC_OK', 'date_vn': date_vn,
               'timezone': 'Asia/Ho_Chi_Minh', 'channel': CHANNEL,
               'matched_sessions': len(sessions), 'sessions': sessions,
