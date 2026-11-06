@@ -19,7 +19,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run offline safety tests\n        run: python -m unittest discover -s top_host -p "test_capture_handoff_preview.py" -v\n      - run: python -m pip install --disable-pip-version-check google-auth requests
+      - name: Run offline safety tests
+        run: python -m unittest discover -s top_host -p "test_capture_handoff_preview.py" -v
+      - run: python -m pip install --disable-pip-version-check google-auth requests
       - name: Read today's Top Host schedule
         run: python top_host/schedule_sync_json.py
       - name: Validate and prepare capture handoff (preview only)
