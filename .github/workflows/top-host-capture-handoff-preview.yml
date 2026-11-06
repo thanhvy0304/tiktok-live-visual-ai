@@ -1,0 +1,35 @@
+name: Top Host Capture Handoff - PREVIEW
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  top-host-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/291478497469/locations/global/workloadIdentityPools/top-host-github/providers/github-actions
+          service_account: top-host-schedule-reader@olala-live-together.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --disable-pip-version-check google-auth requests
+      - name: Read today's Top Host schedule
+        run: python top_host/schedule_sync_json.py
+      - name: Validate and prepare capture handoff (preview only)
+        run: python top_host/capture_handoff_preview.py
+      - name: Upload handoff preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: top-host-capture-handoff-preview
+          path: |
+            top_host/output/schedule_sync.json
+            top_host/output/capture_handoff.json
+          if-no-files-found: error
+          retention-days: 7
