@@ -28,7 +28,7 @@ def plan(handoff, now, already_captured=None):
         if not sid or sid in seen:
             raise ValueError("Duplicate or missing schedule ID")
         seen.add(sid)
-        if s.get("host", "").strip().casefold() != "thanh huyền" or s.get("channel") != "Tiktok Tích Xanh" or s.get("live_url") != URL:
+        if not s.get("host", "").strip() or s.get("channel") != "Tiktok Tích Xanh" or s.get("live_url") != URL:
             raise ValueError("Unexpected capture target")
         start, end = datetime.fromisoformat(s["start_vn"]), datetime.fromisoformat(s["end_vn"])
         if start.tzinfo is None or end.tzinfo is None or end <= start:
@@ -36,7 +36,7 @@ def plan(handoff, now, already_captured=None):
         key = hashlib.sha256(f"{sid}|{start.isoformat()}|FIRST_FRAME".encode()).hexdigest()[:24]
         active = start <= now < end
         reason = "OUTSIDE_WINDOW" if not active else ("ALREADY_CAPTURED" if key in already_captured else "AWAITING_PLAYBACK_AND_HOST_REVIEW")
-        decisions.append({"schedule_id": sid, "idempotency_key": key,
+        decisions.append({"schedule_id": sid, "host": s["host"], "idempotency_key": key,
                           "scheduled_active": active, "reason": reason,
                           "capture_authorized": False})
     return {"status": "CAPTURE_PLAN_DRY_RUN", "generated_at_vn": now.isoformat(),
