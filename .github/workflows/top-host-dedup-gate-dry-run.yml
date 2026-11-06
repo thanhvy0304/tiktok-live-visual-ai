@@ -1,0 +1,47 @@
+name: Top Host Dedup Gate - DRY RUN
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: top-host-capture-gate
+  cancel-in-progress: false
+
+jobs:
+  dedup-dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/291478497469/locations/global/workloadIdentityPools/top-host-github/providers/github-actions
+          service_account: top-host-schedule-reader@olala-live-together.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install auth
+        run: python -m pip install --disable-pip-version-check google-auth requests
+      - name: Run safety tests
+        run: |
+          python -m unittest top_host.test_capture_plan_dry_run -v
+          python -m unittest top_host.test_dedup_gate_dry_run -v
+      - name: Read schedule
+        run: python top_host/schedule_sync_json.py
+      - name: Validate handoff
+        run: python top_host/capture_handoff_preview.py
+      - name: Plan
+        run: python top_host/capture_plan_dry_run.py
+      - name: Dedup gate (no capture)
+        run: python top_host/dedup_gate_dry_run.py
+      - name: Upload diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: top-host-dedup-gate-dry-run
+          path: top_host/output/dedup_gate_dry_run.json
+          if-no-files-found: warn
+          retention-days: 7
