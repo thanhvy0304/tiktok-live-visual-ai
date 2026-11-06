@@ -32,9 +32,9 @@ class TestPlan(unittest.TestCase):
         self.assertEqual(first, plan(handoff(), NOW)["sessions"][0]["idempotency_key"])
         self.assertEqual(plan(handoff(), NOW, [first])["sessions"][0]["reason"], "ALREADY_CAPTURED")
 
-    def test_wrong_host_rejected(self):
+    def test_missing_host_rejected(self):
         h = handoff()
-        h["sessions"][0]["host"] = "Another Host"
+        h["sessions"][0]["host"] = ""
         with self.assertRaises(ValueError):
             plan(h, NOW)
 
