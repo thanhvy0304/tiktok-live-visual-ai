@@ -47,7 +47,7 @@ async def main():
     for item in data.get("sessions", []):
         if item.get("live_url") != ALLOWED_URL or item.get("channel") != "Tiktok Tích Xanh":
             raise ValueError("Unexpected LIVE target")
-        if item.get("host", "").strip().casefold() != "thanh huyền":
+        if not item.get("host", "").strip():
             raise ValueError("Unexpected host")
         start = datetime.fromisoformat(item["start_vn"])
         end = datetime.fromisoformat(item["end_vn"])
