@@ -28,9 +28,10 @@ async def main():
         result["reason"] = "NO_UNIQUE_ACTIVE_SESSION"
     else:
         session = active[0]
-        if session.get("host", "").strip().casefold() != "thanh huyền" or session.get("channel") != "Tiktok Tích Xanh" or session.get("live_url") != URL:
+        if not session.get("host", "").strip() or session.get("channel") != "Tiktok Tích Xanh" or session.get("live_url") != URL:
             raise ValueError("Unexpected session")
         result["schedule_id"] = session["schedule_id"]
+        result["scheduled_host"] = session["host"]
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
             try:
